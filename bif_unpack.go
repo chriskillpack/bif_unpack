@@ -35,13 +35,13 @@ func main() {
 		fmt.Println("Missing input BIF file")
 		os.Exit(1)
 	}
-	bif_filename := args[0]
+	bifFilename := args[0]
 	var outDir string
 	if len(args) == 2 {
 		outDir = args[1]
 	}
 
-	fc, err := ioutil.ReadFile(bif_filename)
+	fc, err := ioutil.ReadFile(bifFilename)
 	if err != nil {
 		fmt.Printf("Could not read %s: %v\n", err)
 		os.Exit(1)
@@ -62,11 +62,9 @@ func main() {
 	fmt.Printf("Interval: %d\n", header.Interval)
 
 	entries := make([]bifEntry, header.Images+1) // +1 for the additional tail entry
-	for i := range entries {
-		err = binary.Read(br, binary.LittleEndian, &entries[i])
-		if err != nil {
-			fmt.Printf("Err: %v\n", err)
-		}
+	if err = binary.Read(br, binary.LittleEndian, entries); err != nil {
+		fmt.Printf("Err: %v\n", err)
+		os.Exit(1)
 	}
 	// Check index of tail entry (0xFFFFFF, total offset)
 	if entries[len(entries)-1].Index != -1 {
