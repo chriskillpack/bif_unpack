@@ -10,6 +10,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"os"
 	"path"
 )
@@ -31,11 +32,12 @@ type bifEntry struct {
 }
 
 func main() {
+	log.SetFlags(0)
+
 	// Parse cmdline args
 	args := os.Args[1:]
 	if len(args) < 1 {
-		fmt.Println("Missing input BIF file")
-		os.Exit(1)
+		log.Fatal("Missing input BIF file\n")
 	}
 	bifFilename := args[0]
 	var outDir string
@@ -45,33 +47,27 @@ func main() {
 
 	fc, err := ioutil.ReadFile(bifFilename)
 	if err != nil {
-		fmt.Printf("Could not read %s: %v\n", err)
-		os.Exit(1)
+		log.Fatal(err)
 	}
 
 	br := bytes.NewReader(fc)
 	header := bifHeader{}
-	err = binary.Read(br, binary.LittleEndian, &header)
-	if err != nil {
-		fmt.Printf("Could not read from file: %v\n", err)
-		os.Exit(1)
+	if err = binary.Read(br, binary.LittleEndian, &header); err != nil {
+		log.Fatalf("Could not read from file: %v\n", err)
 	}
 	if bytes.Compare(header.Magic[:], headerMagic) != 0 {
-		fmt.Println("Unexpected header")
-		os.Exit(1)
+		log.Fatal("Unexpected header")
 	}
 	fmt.Printf("Num images: %d\n", header.Images)
 	fmt.Printf("Interval: %d\n", header.Interval)
 
 	entries := make([]bifEntry, header.Images+1) // +1 for the additional tail entry
 	if err = binary.Read(br, binary.LittleEndian, entries); err != nil {
-		fmt.Printf("Err: %v\n", err)
-		os.Exit(1)
+		log.Fatalf("Could not read from file: %v\n", err)
 	}
 	// Check index of tail entry (0xFFFFFF, total offset)
 	if entries[len(entries)-1].Index != -1 {
-		fmt.Println("Unexpected final entry")
-		os.Exit(1)
+		log.Fatal("Unexpected final entry\n")
 	}
 
 	if outDir == "" {
@@ -84,27 +80,22 @@ func main() {
 		if os.IsNotExist(err) {
 			err = os.Mkdir(outDir, os.ModePerm)
 			if err != nil {
-				fmt.Printf("Error creating output directory %s: %v\n", outDir, err)
-				os.Exit(1)
+				log.Fatalf("Error creating output directory %s: %v\n", outDir, err)
 			}
 		} else {
-			fmt.Printf("Could not stat %s: %v\n", outDir, err)
-			os.Exit(1)
+			log.Fatalf("Could not stat %s: %v\n", outDir, err)
 		}
 	} else {
 		if !fi.IsDir() {
-			fmt.Printf("Output %s is not a directory\n", outDir)
-			os.Exit(1)
+			log.Fatalf("Output %s is not a directory\n", outDir)
 		}
 	}
 
-	for i := 0; i < len(entries)-1; i++ {
-		entry := entries[i]
-
+	for i, entry := range entries[:len(entries)-1] {
 		fname := path.Join(outDir, fmt.Sprintf("%016d.jpg", entry.Index))
 		f, err := os.Create(fname)
 		if err != nil {
-			fmt.Println("Could not create %s: %v\n", fname, err)
+			fmt.Printf("Could not create %s: %v\n", fname, err)
 			break
 		}
 		defer f.Close()
@@ -113,11 +104,11 @@ func main() {
 		fmt.Printf("Writing %s, %d bytes\n", fname, sz)
 		n, err := f.Write(fc[entry.Offset : entry.Offset+sz])
 		if err != nil {
-			fmt.Println("Failed to write file: %v\n", err)
+			fmt.Printf("Failed to write file: %v\n", err)
 			break
 		}
 		if n != int(sz) {
-			fmt.Println("Failed to write %d bytes, only wrote %d\n", sz, n)
+			fmt.Printf("Failed to write %d bytes, only wrote %d\n", sz, n)
 			break
 		}
 	}
