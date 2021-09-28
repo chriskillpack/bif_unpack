@@ -15,9 +15,8 @@ import (
 	"path"
 )
 
-var (
-	headerMagic = []byte{0x89, 0x42, 0x49, 0x46, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0}
-)
+// BIF header magic sequence
+var magicBIF = [12]byte{0x89, 0x42, 0x49, 0x46, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0}
 
 type bifHeader struct {
 	Magic    [12]byte
@@ -55,7 +54,7 @@ func main() {
 	if err = binary.Read(br, binary.LittleEndian, &header); err != nil {
 		log.Fatalf("Could not read from file: %v\n", err)
 	}
-	if bytes.Compare(header.Magic[:], headerMagic) != 0 {
+	if !bytes.Equal(header.Magic[:], magicBIF[:]) {
 		log.Fatal("Unexpected header")
 	}
 	fmt.Printf("Num images: %d\n", header.Images)
